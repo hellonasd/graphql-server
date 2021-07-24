@@ -1,0 +1,37 @@
+type Todo {
+    message : String!
+    favorite : Boolean!
+    completed : Boolean!
+    id: ID!
+}
+
+type Users {
+    id : ID!
+    name : String!
+    email : String!
+    todo : [Todo]!
+    accessToken : String!
+}
+
+
+
+type Query {
+    users : [Users!]!
+    getAllTodo : [Todo!]!
+}
+
+type Mutation{
+    createTodo(message : String!, favorite: Boolean!, completed: Boolean!): [Todo!]!
+    registration(email : String!, password : String!, name : String!) : Users!
+    login(email : String!, password : String!) : Users!
+    deleteTodo(id : ID!) : Todo!
+    logout : String!
+    findAndUpdateTask(input : TodoInput!) : Todo!
+}
+
+input TodoInput {
+    message : String!
+    id : ID!
+    favorite : Boolean!
+    completed : Boolean!
+}
