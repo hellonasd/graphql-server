@@ -77,7 +77,6 @@ async function startApolloServer(typeDefs, resolvers) {
   server.applyMiddleware({
     app,
     cors: false,
-    path: "/",
   });
 
   mongoose
