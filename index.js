@@ -1,28 +1,27 @@
-require('dotenv').config();
-const { ApolloServer, gql } = require("apollo-server-express");
+require("dotenv").config();
+const { ApolloServer } = require("apollo-server-express");
 const express = require("express");
 const mongoose = require("mongoose");
-const router = require('./router/authorization');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const session = require('express-session');
 
-//resolvers 
-const resolvers = require('./init-graphql/user/resolvers');
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const session = require("express-session");
 
-const readToken = require('./readToken');
+//resolvers
+const resolvers = require("./init-graphql/user/resolvers");
+
+const readToken = require("./readToken");
 
 //schema-graphql
 
-const requireGraphQLFile = require('require-graphql-file');
+const requireGraphQLFile = require("require-graphql-file");
 
-const typeDefs = requireGraphQLFile('./init-graphql/user/schema.graphql');
+const typeDefs = requireGraphQLFile("./init-graphql/user/schema.graphql");
 
 //playground graphql server
 const {
-    ApolloServerPluginLandingPageGraphQLPlayground  ,
+  ApolloServerPluginLandingPageGraphQLPlayground,
 } = require("apollo-server-core");
-
 
 const opts = {
   useNewUrlParser: true,
@@ -32,55 +31,55 @@ const opts = {
 async function startApolloServer(typeDefs, resolvers) {
   // Same ApolloServer initialization as before
   const app = express();
-  app.use(cors({
-    origin : `http://localhosth:4000`,
-    credentials : true
-  }));
+  app.use(
+    cors({
+      origin: `http://localhosth:4000`,
+      credentials: true,
+    })
+  );
   app.use(express.json());
-  
-  app.use(cookieParser());
-  app.use(session({
-    key: 'token',
-    secret : process.env.JWT_ACCESS_TOKEN,
-    resave : false,
-    rolling: true,
-    saveUninitialized : false,
-    cookie : {
-      httpOnly : true,
-      maxAge : 15 * 60 * 1000
-    }
-  }))
-  app.use(readToken);
-  const server = new ApolloServer({ 
-      typeDefs, 
-      resolvers,
-      plugins : [ApolloServerPluginLandingPageGraphQLPlayground()],
-      context : ({req, res}) => {
-        
-        return {
-          req,
-          res,
-          session : req.session
-        };
-      },
-      playground : {
-        settings : {
-          "request.credentials" : "include"
-        }
-      }
-});
 
-  // Required logic for integrating with Express
+  app.use(cookieParser());
+  app.use(
+    session({
+      key: "token",
+      secret: process.env.JWT_ACCESS_TOKEN,
+      resave: false,
+      rolling: true,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        maxAge: 15 * 60 * 1000,
+      },
+    })
+  );
+  app.use(readToken);
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    plugins: [ApolloServerPluginLandingPageGraphQLPlayground()],
+    context: ({ req, res }) => {
+      return {
+        req,
+        res,
+        session: req.session,
+      };
+    },
+    playground: {
+      settings: {
+        "request.credentials": "include",
+      },
+    },
+  });
+
   await server.start();
- 
-  
+
   server.applyMiddleware({
     app,
-    cors : false
+    cors: false,
+    path: "/",
   });
-  
-  
-  // Modified server startup
+
   mongoose
     .connect(
       `mongodb+srv://nick:${process.env.PASS_DB}@cluster0.vgwsq.mongodb.net/graphql?retryWrites=true&w=majority`,
