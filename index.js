@@ -33,7 +33,7 @@ async function startApolloServer(typeDefs, resolvers) {
   const app = express();
   app.use(
     cors({
-      origin: `http://localhosth:4000`,
+      origin: `*`,
       credentials: true,
     })
   );
