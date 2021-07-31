@@ -22,7 +22,6 @@ class UserService {
       password: hashPassword,
     });
     const userDtos = new Dtos(user);
-
     const tokens = await tokenServise.generateTokones({ ...userDtos });
     await tokenServise.saveToken(userDtos.id, tokens.refreshToken);
     return {

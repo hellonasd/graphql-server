@@ -1,8 +1,11 @@
+scalar Date
+
 type Todo {
     message : String!
     favorite : Boolean!
     completed : Boolean!
     id: ID!
+    created : Date
 }
 
 type Users {
@@ -17,11 +20,11 @@ type Users {
 
 type Query {
     users : [Users!]!
-    getAllTodo : [Todo!]!
+    getAllTodo : [Todo]!
 }
 
-type Mutation{
-    createTodo(message : String!, favorite: Boolean!, completed: Boolean!): [Todo!]!
+type Mutation {
+    createTodo(message : String!, favorite: Boolean!, completed: Boolean!): Todo!
     registration(email : String!, password : String!, name : String!) : Users!
     login(email : String!, password : String!) : Users!
     deleteTodo(id : ID!) : Todo!
@@ -34,4 +37,9 @@ input TodoInput {
     id : ID!
     favorite : Boolean!
     completed : Boolean!
+}
+
+type Subscription {
+   all : [Todo]!
+   createTodo: Todo!
 }

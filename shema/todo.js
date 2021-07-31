@@ -5,6 +5,7 @@ const schema = mongoose.Schema({
         message : {type : String},
         favorite : {type : Boolean},
         completed : {type : Boolean},
+        created : {type : Date},
         user: {
             type: mongoose.Types.ObjectId,
             ref: 'user'

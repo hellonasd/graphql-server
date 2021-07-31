@@ -2,29 +2,52 @@ const { getUsers, getTodo, createTask } = require("./model");
 const userService = require("../../service/user-service");
 //todo-service
 const todoService = require("../../service/todo-service");
+
+const pubSub = require("../../pubSub/pubSub");
+
+const { withFilter } = require("graphql-subscriptions");
+
+//events
+const events = require("./events");
+
 module.exports = resolvers = {
   Query: {
     users: (_, __, ctx) => {
-      if (ctx.req.user) {
+      if (ctx.user) {
         return getUsers();
       } else {
         throw new Error(`вы не авторизованы`);
       }
     },
-    getAllTodo: (_, __, ctx) => {
-      if (ctx.req.user) {
-        const { email } = ctx.req.user;
-        return getTodo(email);
+    getAllTodo: async (_, __, ctx) => {
+      if (ctx.user) {
+        const { email } = ctx.user;
+        const usr = await getTodo(email);
+        pubSub.publish(events.ALL_TODO, {
+          all: usr,
+        });
+
+        return usr
       } else {
         throw new Error("авторизируйтесь пожалуйста");
       }
     },
   },
   Mutation: {
-    createTodo: (_, { message, favorite, completed }, ctx) => {
-      if (ctx.req.user) {
-        const { email } = ctx.req.user;
-        return createTask(email, message, favorite, completed);
+    createTodo: async (_, { message, favorite, completed }, ctx) => {
+      if (ctx.user) {
+        const { email } = ctx.user;
+        const usr = await createTask(email, message, favorite, completed);
+        const todos = await getTodo(email);
+        todos.unshift(usr);
+        pubSub.publish(events.CREATE_TODO, {
+          createTodo: usr,
+        });
+        pubSub.publish(events.ALL_TODO, {
+          all: todos,
+        });
+        
+        return usr;
       } else {
         throw new Error("вы не авторизованы, что бы создавать задачу");
       }
@@ -33,7 +56,9 @@ module.exports = resolvers = {
       const user = await userService.registration(name, email, password);
       const newRegUser = user.user;
       const accessToken = user.accessToken;
-      ctx.req.session.token = accessToken;
+      pubSub.publish(events.ALL_TODO, {
+        all: await getTodo(email),
+      });
       return {
         ...newRegUser,
         accessToken,
@@ -43,17 +68,22 @@ module.exports = resolvers = {
       const user = await userService.login(email, password);
       const loginUser = user.user;
       const accessToken = user.accessToken;
-      ctx.req.session.token = accessToken;
-
+      pubSub.publish(events.ALL_TODO, {
+        all: await getTodo(email),
+      });
       return {
         ...loginUser,
         accessToken,
       };
     },
     deleteTodo: async (_, { id }, ctx) => {
-      if (ctx.req.user) {
+      if (ctx.user) {
+        const { email } = ctx.user;
         const { _id, message, completed, favorite } =
           await todoService.deleteTodo(id);
+        pubSub.publish(events.ALL_TODO, {
+          all: await getTodo(email),
+        });
         return {
           id: _id,
           message,
@@ -65,16 +95,38 @@ module.exports = resolvers = {
       }
     },
     findAndUpdateTask: async (_, { input }, ctx) => {
-      if (ctx.req.user) {
+      if (ctx.user) {
+        const { email } = ctx.user;
+        
         const todo = await todoService.findAndUpdateTask(input);
+        pubSub.publish(events.ALL_TODO, {
+          all: await getTodo(email),
+        });
         return todo;
       } else {
         throw new Error("вы не авторизованы");
       }
     },
     logout: (_, __, ctx) => {
-      ctx.req.session.destroy();
       return "вы вышли";
+    },
+  },
+  Subscription: {
+    all: {
+      subscribe: withFilter(
+       () => pubSub.asyncIterator([events.ALL_TODO]),
+        (payload, variables) => {
+          return payload.all ? true : false;
+        }
+      ),
+    },
+    createTodo: {
+      subscribe: withFilter(
+        () => pubSub.asyncIterator([events.CREATE_TODO]),
+        (payload, variables) => {
+          return payload.createTodo ? true : false;
+        }
+      ),
     },
   },
 };

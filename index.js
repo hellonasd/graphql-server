@@ -6,6 +6,10 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const session = require("express-session");
+const { createServer } = require("http");
+const { execute, subscribe } = require("graphql");
+const { SubscriptionServer } = require("subscriptions-transport-ws");
+const { makeExecutableSchema } = require("@graphql-tools/schema");
 
 //resolvers
 const resolvers = require("./init-graphql/user/resolvers");
@@ -33,13 +37,13 @@ async function startApolloServer(typeDefs, resolvers) {
   const app = express();
   app.use(
     cors({
-      origin: "*",
+      origin: ['https://graphql-server-ap.herokuapp.com/graphql','https://heroku-apollo.herokuapp.com', 'https://heroku-apollo.herokuapp.com/todo', 'https://heroku-apollo.herokuapp.com/'],
       credentials: true,
     })
   );
+  const httpServer = createServer(app);
+  
   app.use(express.json());
-
-  app.use(cookieParser());
   app.use(
     session({
       key: "token",
@@ -53,16 +57,19 @@ async function startApolloServer(typeDefs, resolvers) {
       },
     })
   );
-  app.use(readToken);
+  app.use(cookieParser());
+
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
   const server = new ApolloServer({
-    typeDefs,
-    resolvers,
+    schema,
     plugins: [ApolloServerPluginLandingPageGraphQLPlayground()],
     context: ({ req, res }) => {
+      const token = req.headers.authorization || "";
+      const user = readToken(token);
       return {
         req,
         res,
-        session: req.session,
+        user,
       };
     },
     playground: {
@@ -70,6 +77,7 @@ async function startApolloServer(typeDefs, resolvers) {
         "request.credentials": "include",
       },
     },
+    introspection: true,
   });
 
   await server.start();
@@ -79,15 +87,33 @@ async function startApolloServer(typeDefs, resolvers) {
     cors: false,
   });
 
+  const subscriptionServer = SubscriptionServer.create(
+    {
+      schema,
+
+      execute,
+      subscribe,
+    },
+    {
+      server: httpServer,
+      path: server.graphqlPath,
+    }
+  );
+
+  ["SIGINT", "SIGTERM"].forEach((signal) => {
+    process.on(signal, () => subscriptionServer.close());
+  });
   mongoose
     .connect(
       `mongodb+srv://nick:${process.env.PASS_DB}@cluster0.vgwsq.mongodb.net/graphql?retryWrites=true&w=majority`,
       opts
     )
     .then(() => {
-      app.listen({ port: process.env.PORT }, () => {
+      httpServer.listen({ port: process.env.PORT || 4000 }, () => {
         console.log(
-          `🚀 Server ready at http://localhost:${process.env.PORT}${server.graphqlPath}`
+          `🚀 Server ready at localhost:${process.env.PORT || 4000}${
+            server.graphqlPath
+          }`
         );
       });
     });
